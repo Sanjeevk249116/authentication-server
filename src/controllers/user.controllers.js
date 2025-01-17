@@ -39,9 +39,8 @@ const generateSessionId = (userId, time) => {
 
 const verifySessionId = (sessionId) => {
   const session = sessionStore[sessionId];
-
   if (!session) {
-    throw new ApiError(400, "Invalid session ID");
+    throw new ApiError(400, "Invalid session Id");
   }
 
   if (Date.now() > session.expiresAt) {
@@ -57,6 +56,10 @@ const registerPhoneNumber = asyncHandler(async (req, res) => {
   if (!phoneNumber) {
     throw new ApiError(400, "Phone number is required");
   }
+  let formattedPhoneNumber = phoneNumber.trim();
+  if (!formattedPhoneNumber.startsWith("+")) {
+    formattedPhoneNumber = `+${formattedPhoneNumber}`;
+  }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStorage[phoneNumber] = otp;
@@ -64,7 +67,7 @@ const registerPhoneNumber = asyncHandler(async (req, res) => {
   client.messages.create({
     body: `Your OTP is ${otp}`,
     from: twilioPhoneNumber,
-    to: phoneNumber,
+    to: formattedPhoneNumber,
   });
 
   const sessionId = generateSessionId(phoneNumber, 2);
