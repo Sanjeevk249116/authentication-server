@@ -48,7 +48,7 @@ userSchema.methods.generateAuthenticationToken = function () {
     {
       _id: this._id,
     },
-    process.env.ACCESS_TOKEN_SECRET,
+    process.env.ACCESS_TOKEN_VALUE,
     { expiresIn: process.env.ACCESS_TOKEN_EXPIRY }
   );
 };

@@ -12,7 +12,6 @@ const authToken = process.env.ACCOUNT_AUTH_TOKEN;
 const twilioPhoneNumber = process.env.ACCOUNT_PHONE_NUMBER;
 
 const client = new twilio(accountSid, authToken);
-
 const sessionStore = {};
 let otpStorage = {};
 
@@ -68,7 +67,7 @@ const registerPhoneNumber = asyncHandler(async (req, res) => {
     to: phoneNumber,
   });
 
-  const sessionId = await generateSessionId(phoneNumber, 2);
+  const sessionId = generateSessionId(phoneNumber, 2);
   return res
     .status(200)
     .json(new ApiResponse(200, { sessionId }, "OTP sent successfully!"));
@@ -79,7 +78,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
   if (!phoneNumber || !otp) {
     throw new ApiError(400, "Phone number and OTP are required.");
   }
-  const validSessionId = await verifySessionId(sessionId);
+  const validSessionId = verifySessionId(sessionId);
   if (validSessionId) {
     delete sessionStore[sessionId];
   }
@@ -92,7 +91,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
       const accessToken = await generateToken(existUser?._id);
       return res.status(200).json(new ApiResponse(200, accessToken));
     }
-    const sessionIdValues = await generateSessionId(phoneNumber, 10);
+    const sessionIdValues = generateSessionId(phoneNumber, 10);
 
     return res
       .status(200)
@@ -153,4 +152,21 @@ const loginUser = asyncHandler(async (req, res) => {
   }
 });
 
-module.exports = { registerPhoneNumber, verifyOtp, registerUser, loginUser };
+const userProfile = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const user = await userModels
+    .findById(id)
+    .select("-password -accessToken");
+  if (!user) {
+    throw new ApiError("User doest not exist");
+  }
+  return res.status(200).json(new ApiResponse(200, user));
+});
+
+module.exports = {
+  registerPhoneNumber,
+  verifyOtp,
+  registerUser,
+  loginUser,
+  userProfile,
+};
