@@ -154,37 +154,24 @@ const registerNewSeller = asyncHandler(async (req, res) => {
   if (!name || !email || !password || !phoneNumber) {
     throw new ApiError(400, "All fields are required");
   }
-  console.log(req.body);
-  // try {
-  //   const existUser = await userModels.findOne({
-  //     $or: [{ email: email }, { phoneNumber: phoneNumber }],
-  //   });
 
-  //   if (existUser) {
-  //     throw new ApiError(400, "User is already registered");
-  //   }
+  const existUser = await userModels.findOne({
+    $or: [{ email: email }, { phoneNumber: phoneNumber }],
+  });
 
-  //   const user = await userModels.create({
-  //     name,
-  //     email,
-  //     phoneNumber,
-  //     password,
-  //   });
-  //   const accessToken = await generateToken(user?._id);
+  if (existUser) {
+    throw new ApiError(400, "User is already registered");
+  }
 
-  //   return res.status(200).json(new ApiResponse(200, accessToken));
-  // } catch (error) {
-  //   console.log(error);
-  //   if (error.code === 11000) {
-  //     if (error.keyValue.email) {
-  //       throw new ApiError(400, "Email is already registered");
-  //     }
-  //     if (error.keyValue.phoneNumber) {
-  //       throw new ApiError(400, "Phone number is already registered");
-  //     }
-  //   }
-  //   throw new ApiError(500, "Internal serval error whille registered");
-  // }
+  const user = await userModels.create({
+    name,
+    email,
+    phoneNumber,
+    password,
+  });
+  const accessToken = await generateToken(user?._id);
+
+  return res.status(200).json(new ApiResponse(200, accessToken));
 });
 
 const loginUser = asyncHandler(async (req, res) => {
