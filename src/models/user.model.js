@@ -17,10 +17,10 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
     phoneNumber: {
-      type: Number,
+      type: String,
       required: true,
       unique: true,
-      trim: true,
+      sparse: true,
     },
     accessToken: { type: String },
     password: {
@@ -32,6 +32,8 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+userSchema.index({ createdAt: -1 });
 
 userSchema.pre("save", async function (next) {
   if (!this.isModified("password")) return next(); // use for not change password every time

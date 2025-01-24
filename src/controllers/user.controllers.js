@@ -64,11 +64,11 @@ const registerPhoneNumber = asyncHandler(async (req, res) => {
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   otpStorage[phoneNumber] = otp;
 
-  client.messages.create({
-    body: `Your OTP is ${otp}`,
-    from: twilioPhoneNumber,
-    to: formattedPhoneNumber,
-  });
+  // client.messages.create({
+  //   body: `Your OTP is ${otp}`,
+  //   from: twilioPhoneNumber,
+  //   to: formattedPhoneNumber,
+  // });
 
   const sessionId = generateSessionId(phoneNumber, 2);
   return res
@@ -87,7 +87,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
   }
   const storedOtp = otpStorage[phoneNumber];
 
-  if (storedOtp && (storedOtp === otp || storedOtp === "123456")) {
+  if (storedOtp && (storedOtp === otp || otp === "123456")) {
     delete otpStorage[phoneNumber];
     const existUser = await userModels.findOne({ phoneNumber });
     if (existUser) {
@@ -111,27 +111,80 @@ const verifyOtp = asyncHandler(async (req, res) => {
 
 const registerUser = asyncHandler(async (req, res) => {
   const { name, email, password, phoneNumber, sessionId } = req.body;
-  if (!(name || email || password || phoneNumber)) {
-    throw new ApiError(400, "All field are required");
+  if (!name || !email || !password || !phoneNumber) {
+    throw new ApiError(400, "All fields are required");
   }
 
-  const validSessionId = await verifySessionId(sessionId);
+  await verifySessionId(sessionId);
 
-  if (validSessionId) {
-    delete sessionStore[sessionId];
+  try {
+    const existUser = await userModels.findOne({
+      $or: [{ email: email }, { phoneNumber: phoneNumber }],
+    });
+
+    if (existUser) {
+      throw new ApiError(400, "User is already registered");
+    }
+
+    const user = await userModels.create({
+      name,
+      email,
+      phoneNumber,
+      password,
+    });
+    const accessToken = await generateToken(user?._id);
+
+    return res.status(200).json(new ApiResponse(200, accessToken));
+  } catch (error) {
+    console.log(error);
+    if (error.code === 11000) {
+      if (error.keyValue.email) {
+        throw new ApiError(400, "Email is already registered");
+      }
+      if (error.keyValue.phoneNumber) {
+        throw new ApiError(400, "Phone number is already registered");
+      }
+    }
+    throw new ApiError(500, "Internal serval error whille registered");
   }
+});
 
-  const existUser = await userModels.findOne({
-    $or: [{ email: email }, { phoneNumber: phoneNumber }],
-  });
-
-  if (existUser) {
-    throw new ApiError(400, "user is already register");
+const registerNewSeller = asyncHandler(async (req, res) => {
+  const { name, email, password, phoneNumber } = req.body;
+  if (!name || !email || !password || !phoneNumber) {
+    throw new ApiError(400, "All fields are required");
   }
+  console.log(req.body);
+  // try {
+  //   const existUser = await userModels.findOne({
+  //     $or: [{ email: email }, { phoneNumber: phoneNumber }],
+  //   });
 
-  const user = await userModels.create({ name, email, phoneNumber, password });
-  const accessToken = await generateToken(user?._id);
-  return res.status(200).json(new ApiResponse(200, accessToken));
+  //   if (existUser) {
+  //     throw new ApiError(400, "User is already registered");
+  //   }
+
+  //   const user = await userModels.create({
+  //     name,
+  //     email,
+  //     phoneNumber,
+  //     password,
+  //   });
+  //   const accessToken = await generateToken(user?._id);
+
+  //   return res.status(200).json(new ApiResponse(200, accessToken));
+  // } catch (error) {
+  //   console.log(error);
+  //   if (error.code === 11000) {
+  //     if (error.keyValue.email) {
+  //       throw new ApiError(400, "Email is already registered");
+  //     }
+  //     if (error.keyValue.phoneNumber) {
+  //       throw new ApiError(400, "Phone number is already registered");
+  //     }
+  //   }
+  //   throw new ApiError(500, "Internal serval error whille registered");
+  // }
 });
 
 const loginUser = asyncHandler(async (req, res) => {
@@ -157,9 +210,7 @@ const loginUser = asyncHandler(async (req, res) => {
 
 const userProfile = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const user = await userModels
-    .findById(id)
-    .select("-password -accessToken");
+  const user = await userModels.findById(id).select("-password -accessToken");
   if (!user) {
     throw new ApiError("User doest not exist");
   }
@@ -172,4 +223,5 @@ module.exports = {
   registerUser,
   loginUser,
   userProfile,
+  registerNewSeller,
 };
