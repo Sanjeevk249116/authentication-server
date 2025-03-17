@@ -22,7 +22,7 @@ const authenticateUser = asyncHandler(async (req, res, next) => {
     if (error.name === "TokenExpiredError") {
       throw new ApiError(401, "Token expired. Please refresh your token.");
     } else {
-      throw new ApiError(403, "Invalid token");
+      throw new ApiError(401, "Invalid token");
     }
   }
 });

@@ -14,7 +14,7 @@ app.use(
     origin: "*",
   })
 );
-app.use("/user", router);
+app.use("/", router);
 app.use((req, res) => {
   throw new ApiError(400, "The requested url is not found.");
 });

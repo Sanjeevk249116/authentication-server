@@ -14,7 +14,7 @@ const twilioPhoneNumber = process.env.ACCOUNT_PHONE_NUMBER;
 const client = new twilio(accountSid, authToken);
 const sessionStore = {};
 let otpStorage = {};
-
+let phone = "";
 const generateToken = async (userId) => {
   try {
     const user = await userModels.findOne(userId);
@@ -62,7 +62,7 @@ const registerPhoneNumber = asyncHandler(async (req, res) => {
   }
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  otpStorage[phoneNumber] = otp;
+  otpStorage[formattedPhoneNumber] = otp;
 
   // client.messages.create({
   //   body: `Your OTP is ${otp}`,
@@ -73,35 +73,44 @@ const registerPhoneNumber = asyncHandler(async (req, res) => {
   const sessionId = generateSessionId(phoneNumber, 2);
   return res
     .status(200)
-    .json(new ApiResponse(200, { sessionId }, "OTP sent successfully!"));
+    .json(
+      new ApiResponse(200, { session: sessionId }, "OTP sent successfully!")
+    );
 });
 
 const verifyOtp = asyncHandler(async (req, res) => {
   const { phoneNumber, otp, sessionId } = req.body;
   if (!phoneNumber || !otp) {
-    throw new ApiError(400, "Phone number and OTP are required.");
+    throw new ApiError(400, {}, "Phone number and OTP are required.");
+  }
+  let formattedPhoneNumber = phoneNumber.trim();
+  if (!formattedPhoneNumber.startsWith("+")) {
+    formattedPhoneNumber = `+${formattedPhoneNumber}`;
   }
   const validSessionId = verifySessionId(sessionId);
   if (validSessionId) {
     delete sessionStore[sessionId];
   }
-  const storedOtp = otpStorage[phoneNumber];
-
+  const storedOtp = otpStorage[formattedPhoneNumber];
+  
   if (storedOtp && (storedOtp === otp || otp === "123456")) {
     delete otpStorage[phoneNumber];
-    const existUser = await userModels.findOne({ phoneNumber });
+    const existUser = await userModels.findOne({
+      phoneNumber: formattedPhoneNumber,
+    });
+
     if (existUser) {
       const accessToken = await generateToken(existUser?._id);
       return res.status(200).json(new ApiResponse(200, accessToken));
     }
     const sessionIdValues = generateSessionId(phoneNumber, 10);
-
+    phone = formattedPhoneNumber;
     return res
       .status(200)
       .json(
         new ApiResponse(
           200,
-          { sessionId: sessionIdValues },
+          { session: sessionIdValues },
           "OTP verified successfully!"
         )
       );
@@ -110,16 +119,19 @@ const verifyOtp = asyncHandler(async (req, res) => {
 });
 
 const registerUser = asyncHandler(async (req, res) => {
-  const { name, email, password, phoneNumber, sessionId } = req.body;
-  if (!name || !email || !password || !phoneNumber) {
+  const { name, email, password, sessionId } = req.body;
+  if (!name || !email || !password) {
     throw new ApiError(400, "All fields are required");
+  }
+  if (!phone) {
+    throw new ApiError(500, "Internal Server Error. Please try again.");
   }
 
   await verifySessionId(sessionId);
 
   try {
     const existUser = await userModels.findOne({
-      $or: [{ email: email }, { phoneNumber: phoneNumber }],
+      $or: [{ email: email }, { phoneNumber: phone }],
     });
 
     if (existUser) {
@@ -129,7 +141,7 @@ const registerUser = asyncHandler(async (req, res) => {
     const user = await userModels.create({
       name,
       email,
-      phoneNumber,
+      phoneNumber: phone,
       password,
     });
     const accessToken = await generateToken(user?._id);
@@ -155,27 +167,39 @@ const registerNewSeller = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All fields are required");
   }
 
-  const existUser = await userModels.findOne({
-    $or: [{ email: email }, { phoneNumber: phoneNumber }],
-  });
+  const user = await userModels.findOneAndUpdate(
+    {
+      email,
+    },
+    {
+      name,
+      email,
+      phoneNumber,
+      password,
+    },
+    {
+      new: true, // Return the updated document
+      upsert: true, // Create the document if it doesn't exist
+      setDefaultsOnInsert: true, // Apply default values if creating
+    }
+  );
 
-  if (existUser) {
-    throw new ApiError(400, "User is already registered");
-  }
-
-  const user = await userModels.create({
-    name,
-    email,
-    phoneNumber,
-    password,
-  });
   const accessToken = await generateToken(user?._id);
 
   return res.status(200).json(new ApiResponse(200, accessToken));
 });
 
+const deleteNewSellerAccount = asyncHandler(async (req, res) => {
+  const { email } = req.params;
+  const account = await userModels.findOneAndDelete({ email });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, account, "delete data after failed to invite."));
+});
+
 const loginUser = asyncHandler(async (req, res) => {
   const { email, password } = req.body;
+
   if (!(email || password)) {
     throw new ApiError(400, "Email id and password is required");
   }
@@ -211,4 +235,5 @@ module.exports = {
   loginUser,
   userProfile,
   registerNewSeller,
+  deleteNewSellerAccount,
 };

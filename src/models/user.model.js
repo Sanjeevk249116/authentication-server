@@ -56,5 +56,4 @@ userSchema.methods.generateAuthenticationToken = function () {
 };
 
 const userModels = mongoose.model("userModels", userSchema);
-
 module.exports = { userModels };
