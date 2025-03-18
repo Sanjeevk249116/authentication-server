@@ -92,7 +92,7 @@ const verifyOtp = asyncHandler(async (req, res) => {
     delete sessionStore[sessionId];
   }
   const storedOtp = otpStorage[formattedPhoneNumber];
-  
+
   if (storedOtp && (storedOtp === otp || otp === "123456")) {
     delete otpStorage[phoneNumber];
     const existUser = await userModels.findOne({
@@ -167,25 +167,20 @@ const registerNewSeller = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All fields are required");
   }
 
-  const user = await userModels.findOneAndUpdate(
-    {
-      email,
-    },
-    {
-      name,
-      email,
-      phoneNumber,
-      password,
-    },
-    {
-      new: true, // Return the updated document
-      upsert: true, // Create the document if it doesn't exist
-      setDefaultsOnInsert: true, // Apply default values if creating
-    }
-  );
+  const existUser =await userModels.findOne({ $or: [{ email }, { phoneNumber }] });
+  console.log(existUser);
+  if (existUser) {
+    throw new ApiError(400, "user is already exists.");
+  }
+
+  const user = await userModels.create({
+    name,
+    email,
+    phoneNumber,
+    password,
+  });
 
   const accessToken = await generateToken(user?._id);
-
   return res.status(200).json(new ApiResponse(200, accessToken));
 });
 
