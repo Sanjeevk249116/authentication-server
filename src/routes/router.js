@@ -6,8 +6,10 @@ const {
   loginUser,
   userProfile,
   registerNewSeller,
-  deleteNewSellerAccount
+  deleteNewSellerAccount,
+  changePassword,
 } = require("../controllers/user.controllers");
+const { authenticateUser } = require("../middleware/auth.middleware");
 
 const router = express.Router();
 
@@ -20,5 +22,5 @@ router.delete("/delete-newSeller/:email", deleteNewSellerAccount);
 
 //sercure routes
 router.get("/profile/:id", userProfile);
-
+router.put("/authenticate/change-password", changePassword);
 module.exports = { router };

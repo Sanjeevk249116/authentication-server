@@ -167,7 +167,9 @@ const registerNewSeller = asyncHandler(async (req, res) => {
     throw new ApiError(400, "All fields are required");
   }
 
-  const existUser =await userModels.findOne({ $or: [{ email }, { phoneNumber }] });
+  const existUser = await userModels.findOne({
+    $or: [{ email }, { phoneNumber }],
+  });
   console.log(existUser);
   if (existUser) {
     throw new ApiError(400, "user is already exists.");
@@ -223,6 +225,35 @@ const userProfile = asyncHandler(async (req, res) => {
   return res.status(200).json(new ApiResponse(200, user));
 });
 
+const changePassword = asyncHandler(async (req, res) => {
+  const { oldPassword, newPassword, confirmNewPassword, email } = req.body;
+
+  if (!oldPassword || !newPassword || !confirmNewPassword || !email) {
+    throw new ApiError(400, "All fields are required.");
+  }
+
+  if (newPassword !== confirmNewPassword) {
+    throw new ApiError(
+      400,
+      "New Password and confirm New Password should be same."
+    );
+  }
+  const checkUser = await userModels.findOne({ email });
+  if (!checkUser) {
+    throw new ApiError(400, "User is not allow to change password.");
+  }
+  const correctPassword = await checkUser.isPasswordCorrect(oldPassword);
+  if (!correctPassword) {
+    throw new ApiError(400, "Invalid Password.");
+  }
+
+  checkUser.password = newPassword;
+  await checkUser.save({ validateBeforeSave: false });
+  return res
+    .status(200)
+    .json(new ApiResponse(200, "Password change successfully."));
+});
+
 module.exports = {
   registerPhoneNumber,
   verifyOtp,
@@ -231,4 +262,5 @@ module.exports = {
   userProfile,
   registerNewSeller,
   deleteNewSellerAccount,
+  changePassword,
 };
